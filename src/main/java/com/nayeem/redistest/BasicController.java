@@ -2,6 +2,7 @@ package com.nayeem.redistest;
 
 import com.nayeem.redistest.model.TestData;
 import com.nayeem.redistest.service.RedisService;
+import com.nayeem.redistest.service.PerformanceTestService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,6 +16,7 @@ import java.util.Map;
 public class BasicController {
 
     private final RedisService redisService;
+    private final PerformanceTestService performanceTestService;
 
     @PostMapping("/data")
     public ResponseEntity<Map<String, Object>> insertData(@RequestBody TestData testData) {
@@ -118,5 +120,84 @@ public class BasicController {
         response.put("status", "UP");
         response.put("service", "Redis Test Application");
         return ResponseEntity.ok(response);
+    }
+
+    // Performance Test Endpoints
+    @PostMapping("/performance/start")
+    public ResponseEntity<Map<String, Object>> startPerformanceTest(@RequestParam(defaultValue = "100000") int records) {
+        Map<String, Object> response = new HashMap<>();
+        
+        if (performanceTestService.isTestRunning()) {
+            response.put("success", false);
+            response.put("message", "Performance test is already running");
+            return ResponseEntity.badRequest().body(response);
+        }
+
+        try {
+            performanceTestService.startPerformanceTest(records);
+            response.put("success", true);
+            response.put("message", "Performance test started with " + records + " records");
+            response.put("records", records);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", "Failed to start performance test: " + e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    @GetMapping("/performance/status")
+    public ResponseEntity<Map<String, Object>> getPerformanceTestStatus() {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            response.put("success", true);
+            response.put("testRunning", performanceTestService.isTestRunning());
+            response.put("insertedCount", performanceTestService.getInsertedCount());
+            response.put("totalInserted", performanceTestService.getTotalInserted());
+            response.put("totalRecordsInRedis", performanceTestService.getTotalDataCount());
+            response.put("performanceTestRecords", performanceTestService.getPerformanceTestDataCount());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", "Failed to get status: " + e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    @GetMapping("/performance/count")
+    public ResponseEntity<Map<String, Object>> getPerformanceTestCount() {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            long totalCount = performanceTestService.getTotalDataCount();
+            long perfTestCount = performanceTestService.getPerformanceTestDataCount();
+            
+            response.put("success", true);
+            response.put("totalRecordsInRedis", totalCount);
+            response.put("performanceTestRecords", perfTestCount);
+            response.put("otherRecords", totalCount - perfTestCount);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", "Failed to get count: " + e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    @DeleteMapping("/performance/clear")
+    public ResponseEntity<Map<String, Object>> clearPerformanceTestData() {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            performanceTestService.clearPerformanceTestData();
+            response.put("success", true);
+            response.put("message", "Performance test data cleared successfully");
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", "Failed to clear performance test data: " + e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        }
     }
 }
